@@ -26,20 +26,8 @@ pipeline {
                 echo 'DEPLOY STARTED'
 
                 withCredentials([
-                    string(credentialsId: 'telegram-bot-token', variable: 'BOT_TOKEN'),
-                    string(credentialsId: 'telegram-chat-id', variable: 'CHAT_ID')
-                ]) {
-                    sh '''
-                        set +x
-                        curl --fail --silent --show-error \
-                          --data-urlencode "chat_id=$CHAT_ID" \
-                          --data-urlencode "text=DEPLOY STARTED - Jenkins DevOps" \
-                          "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" > /dev/null
-                    '''
-                }
-
-                withCredentials([
-                    string(credentialsId: 'vercel-deploy-hook', variable: 'VERCEL_HOOK')
+                    string(credentialsId: 'vercel-deploy-hook',
+                           variable: 'VERCEL_HOOK')
                 ]) {
                     sh '''
                         set +x
@@ -57,36 +45,35 @@ pipeline {
     post {
         success {
             echo 'BUILD SUCCESS'
-
-            withCredentials([
-                string(credentialsId: 'telegram-bot-token', variable: 'BOT_TOKEN'),
-                string(credentialsId: 'telegram-chat-id', variable: 'CHAT_ID')
-            ]) {
-                sh '''
-                    set +x
-                    curl --fail --silent --show-error \
-                      --data-urlencode "chat_id=$CHAT_ID" \
-                      --data-urlencode "text=BUILD SUCCESS - Jenkins CI/CD. Vercel deployment triggered." \
-                      "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" > /dev/null
-                '''
-            }
+            sendTelegram('SUCCESS')
         }
 
         failure {
             echo 'BUILD FAILED'
+            sendTelegram('FAILED')
+        }
+    }
+}
 
-            withCredentials([
-                string(credentialsId: 'telegram-bot-token', variable: 'BOT_TOKEN'),
-                string(credentialsId: 'telegram-chat-id', variable: 'CHAT_ID')
-            ]) {
-                sh '''
-                    set +x
-                    curl --fail --silent --show-error \
-                      --data-urlencode "chat_id=$CHAT_ID" \
-                      --data-urlencode "text=BUILD FAILED - Check Jenkins Console Output." \
-                      "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" > /dev/null
-                '''
-            }
+def sendTelegram(String status) {
+    withCredentials([
+        string(credentialsId: 'telegram-bot-token',
+               variable: 'BOT_TOKEN'),
+        string(credentialsId: 'telegram-chat-id',
+               variable: 'CHAT_ID')
+    ]) {
+        withEnv(["BUILD_STATUS=${status}"]) {
+            sh '''
+                set +x
+                curl --fail --silent --show-error \
+                  --request POST \
+                  "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+                  --data-urlencode "chat_id=${CHAT_ID}" \
+                  --data-urlencode "text=Jenkins CI/CD: ${BUILD_STATUS}
+Project: devops-test-giangg
+Build: ${BUILD_NUMBER}
+Vercel: https://devops-test-giangg.vercel.app/"
+            '''
         }
     }
 }
