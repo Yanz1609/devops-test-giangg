@@ -23,7 +23,23 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo 'Deploy stage started'
+                echo 'DEPLOY STARTED'
+
+                withCredentials([
+                    string(
+                        credentialsId: 'vercel-deploy-hook',
+                        variable: 'VERCEL_HOOK'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+                        curl --fail --silent --show-error \
+                          --request POST \
+                          "$VERCEL_HOOK" > /dev/null
+                    '''
+                }
+
+                echo 'Vercel deployment triggered'
             }
         }
     }
@@ -31,10 +47,12 @@ pipeline {
     post {
         success {
             echo 'BUILD SUCCESS'
+            echo 'Vercel: https://devops-test-giangg.vercel.app/'
         }
+
         failure {
             echo 'BUILD FAILED'
+            echo 'Please check Jenkins Console Output'
         }
     }
 }
-
